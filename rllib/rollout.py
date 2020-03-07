@@ -134,8 +134,8 @@ class RolloutSaver:
         self._current_rollout = []
 
     def end_rollout(self):
-        if self._outfile:
-            if self._use_shelve:
+        if True:
+            if False:
                 # Save this episode as a new entry in the shelf database,
                 # using the episode number as the key.
                 self._shelf[str(self._num_episodes)] = self._current_rollout
@@ -150,13 +150,13 @@ class RolloutSaver:
 
     def append_step(self, obs, action, next_obs, reward, done, info):
         """Add a step to the current rollout, if we are saving them"""
-        if self._outfile:
+        if True:
             if self._save_info:
                 self._current_rollout.append(
                     [obs, action, next_obs, reward, done, info])
             else:
                 self._current_rollout.append(
-                    [obs, action, next_obs, reward, done])
+                    [obs, action, next_obs, reward, done, info])
         self._total_steps += 1
 
 
@@ -346,6 +346,7 @@ def rollout(agent,
                                       num_episodes):
             multi_obs = obs if multiagent else {_DUMMY_AGENT_ID: obs}
             action_dict = {}
+            extra_fetches_dict = {}
             for agent_id, a_obs in multi_obs.items():
                 if a_obs is not None:
                     policy_id = mapping_cache.setdefault(
@@ -364,14 +365,19 @@ def rollout(agent,
                             a_obs,
                             prev_action=prev_actions[agent_id],
                             prev_reward=prev_rewards[agent_id],
-                            policy_id=policy_id)
+                            policy_id=policy_id,
+                            full_fetch=True)
+                    a_action, state, extra_action_fetches = a_action
                     a_action = _flatten_action(a_action)  # tuple actions
                     action_dict[agent_id] = a_action
+                    extra_fetches_dict[agent_id] = extra_action_fetches
                     prev_actions[agent_id] = a_action
             action = action_dict
 
             action = action if multiagent else action[_DUMMY_AGENT_ID]
             next_obs, reward, done, info = env.step(action)
+            info = {**info, **(extra_fetches_dict if multiagent else
+                               extra_fetches_dict[_DUMMY_AGENT_ID])}
             if multiagent:
                 for agent_id, r in reward.items():
                     prev_rewards[agent_id] = r
@@ -392,6 +398,7 @@ def rollout(agent,
         print("Episode #{}: reward: {}".format(episodes, reward_total))
         if done:
             episodes += 1
+    return saver._rollouts
 
 
 if __name__ == "__main__":
